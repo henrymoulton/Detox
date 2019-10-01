@@ -16,6 +16,7 @@
 #import "DetoxAppDelegateProxy.h"
 #import "EarlGreyExtensions.h"
 #import "EarlGreyStatistics.h"
+#import <EarlGrey/GREYSyntheticEvents.h>
 
 #import "DetoxInstrumentsManager.h"
 
@@ -299,7 +300,6 @@ static void detoxConditionalInit()
 				sendDoneAction(self.webSocket, messageId);
 			};
 		}
-#if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_10_3
 		else if(params[@"detoxUserActivityDataURL"])
 		{
 			NSURL* userActivityDataURL = [NSURL fileURLWithPath:params[@"detoxUserActivityDataURL"]];
@@ -312,7 +312,6 @@ static void detoxConditionalInit()
 				sendDoneAction(self.webSocket, messageId);
 			};
 		}
-#endif
 		
 		NSAssert(block != nil, @"Logic error, no block was generated for payload: %@", params);
 		
@@ -327,7 +326,7 @@ static void detoxConditionalInit()
 	else if([type isEqualToString:@"shakeDevice"])
 	{
 		[EarlGrey detox_safeExecuteSync:^{
-			[self _sendShakeNotification];
+			[GREYSyntheticEvents shakeDeviceWithError:NULL];
 			
 			[self _safeSendAction:@"shakeDeviceDone" params:@{} messageId:messageId];
 		}];
@@ -411,14 +410,6 @@ static void detoxConditionalInit()
 	dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
 	
 	[self.webSocket sendAction:@"AppWillTerminateWithError" withParams:details withMessageId:@-10000];
-}
-
-//TODO: Replace once Earl Grey has accepted PR to add this there: https://github.com/google/EarlGrey/pull/679
-- (void)_sendShakeNotification
-{
-	//This behaves exactly in the same manner that UIApplication handles the simulator "Shake Gesture" menu command.
-	[[UIApplication sharedApplication] _sendMotionBegan:UIEventSubtypeMotionShake];
-	[[UIApplication sharedApplication] _sendMotionEnded:UIEventSubtypeMotionShake];
 }
 
 - (void)_handlePerformanceRecording:(NSDictionary*)props isFromLaunch:(BOOL)launch completionHandler:(void(^)(void))completionHandler

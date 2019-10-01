@@ -115,9 +115,9 @@ module.exports.builder = {
     alias: 'workers',
     group: 'Execution:',
     describe:
-      '[iOS Only] Specifies number of workers the test runner should spawn, requires a test runner with parallel execution support (Detox CLI currently supports Jest)',
-    default: 1,
-    number: true
+      '[iOS Only] Specifies the number of workers the test runner should spawn, requires a test runner with parallel execution support (Detox CLI currently supports Jest)',
+    string: true,
+    default: '1'
   },
   'jest-report-specs': {
     group: 'Execution:',
@@ -140,6 +140,10 @@ module.exports.builder = {
     alias: 'device-name',
     group: 'Configuration:',
     describe: 'Override the device name specified in a configuration. Useful for running a single build configuration on multiple devices.'
+  },
+  'device-launch-args': {
+    group: 'Execution:',
+    describe: 'Custom arguments to pass (through) onto the device (emulator/simulator) binary when launched.'
   }
 };
 
@@ -147,10 +151,6 @@ const collectExtraArgs = require('./utils/collectExtraArgs')(module.exports.buil
 
 module.exports.handler = async function test(program) {
   program.artifactsLocation = buildDefaultArtifactsRootDirpath(program.configuration, program.artifactsLocation);
-  
-  if(!program.keepLockFile){
-    clearDeviceRegistryLockFile();
-  }
 
   const config = getDetoxSection();
 
@@ -167,6 +167,10 @@ module.exports.handler = async function test(program) {
   }
 
   const platform = currentConfiguration.type.split('.')[0];
+
+  if(!program.keepLockFile){
+    clearDeviceRegistryLockFile();
+  }
 
   function run() {
     if (runner.includes('jest')) {
@@ -210,7 +214,7 @@ module.exports.handler = async function test(program) {
   }
 
   function runMocha() {
-    if (program.workers !== 1) {
+    if (program.workers !== '1') {
       log.warn('Can not use -w, --workers. Parallel test execution is only supported with iOS and Jest');
     }
 
@@ -235,21 +239,30 @@ module.exports.handler = async function test(program) {
       ...getPassthroughArguments(),
     ]).join(' ');
 
-    log.info(command);
-    cp.execSync(command, { stdio: 'inherit' });
+
+    const detoxEnvironmentVariables = _.pick(program, [
+      'deviceLaunchArgs',
+    ]);
+
+    launchTestRunner(command, detoxEnvironmentVariables);
   }
 
   function runJest() {
-    if (platform === 'android' && program.workers !== 1) {
-      log.warn('Can not use -w, --workers. Parallel test execution is only supported on iOS currently');
-      program.w = program.workers = 1;
+    const hasMultipleWorkers = program.workers !== '1';
+    if (platform === 'android') {
+      program.readOnlyEmu = false;
+      if (hasMultipleWorkers) {
+        program.readOnlyEmu = true;
+        log.warn('Multiple workers is an experimental feature on Android and requires an emulator binary of version 28.0.16 or higher. ' +
+          'Check your version by running: $ANDROID_HOME/tools/bin/sdkmanager --list');
+      }
     }
 
     const jestReportSpecsArg = program['jest-report-specs'];
     if (!_.isUndefined(jestReportSpecsArg)) {
       program.reportSpecs = (jestReportSpecsArg.toString() === 'true');
     } else {
-      program.reportSpecs = (program.workers === 1);
+      program.reportSpecs = !hasMultipleWorkers;
     }
 
     const command = _.compact([
@@ -276,16 +289,11 @@ module.exports.handler = async function test(program) {
       'recordPerformance',
       'deviceName',
       'reportSpecs',
+      'readOnlyEmu',
+      'deviceLaunchArgs',
     ]);
 
-    log.info(printEnvironmentVariables(detoxEnvironmentVariables) + command);
-    cp.execSync(command, {
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        ...detoxEnvironmentVariables
-      }
-    });
+    launchTestRunner(command, detoxEnvironmentVariables);
   }
 
   function printEnvironmentVariables(envObject) {
@@ -320,9 +328,20 @@ module.exports.handler = async function test(program) {
   }
 
   function clearDeviceRegistryLockFile() {
-    const lockFilePath = environment.getDeviceLockFilePath();
+    const lockFilePath = platform === 'ios' ? environment.getDeviceLockFilePathIOS() : environment.getDeviceLockFilePathAndroid();
     fs.ensureFileSync(lockFilePath);
     fs.writeFileSync(lockFilePath, '[]');
+  }
+
+  function launchTestRunner(command, detoxEnvironmentVariables) {
+    log.info(printEnvironmentVariables(detoxEnvironmentVariables) + command);
+    cp.execSync(command, {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        ...detoxEnvironmentVariables
+      }
+    });
   }
 
   run();

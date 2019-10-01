@@ -1,4 +1,5 @@
 const fs = require('fs');
+const URL = require('url').URL;
 const _ = require('lodash');
 const { encodeBase64 } = require('../../utils/encoding');
 const log = require('../../utils/logger').child({ __filename });
@@ -15,13 +16,10 @@ const ADBLogcatPlugin = require('../../artifacts/log/android/ADBLogcatPlugin');
 const ADBScreencapPlugin = require('../../artifacts/screenshot/ADBScreencapPlugin');
 const ADBScreenrecorderPlugin = require('../../artifacts/video/ADBScreenrecorderPlugin');
 const AndroidDevicePathBuilder = require('../../artifacts/utils/AndroidDevicePathBuilder');
-const DetoxRuntimeError = require('../../errors/DetoxRuntimeError');
 const sleep = require('../../utils/sleep');
 const retry = require('../../utils/retry');
 const { interruptProcess, spawnAndLog } = require('../../utils/exec');
 const AndroidExpect = require('../../android/expect');
-
-const EspressoDetox = 'com.wix.detox.espresso.EspressoDetox';
 
 class AndroidDriver extends DeviceDriverBase {
   constructor(config) {
@@ -199,11 +197,16 @@ class AndroidDriver extends DeviceDriverBase {
   async _launchInstrumentationProcess(deviceId, bundleId, rawLaunchArgs) {
     const launchArgs = this._prepareLaunchArgs(rawLaunchArgs);
     const additionalLaunchArgs = this._prepareLaunchArgs({debug: false});
+    const serverPort = new URL(this.client.configuration.server).port;
+    await this.adb.reverse(deviceId, serverPort);
     const testRunner = await this.adb.getInstrumentationRunner(deviceId, bundleId);
     const spawnFlags = [`-s`, `${deviceId}`, `shell`, `am`, `instrument`, `-w`, `-r`, ...launchArgs, ...additionalLaunchArgs, testRunner];
 
     this.instrumentationProcess = spawnAndLog(this.adb.adbBin, spawnFlags, { detached: false });
-    this.instrumentationProcess.childProcess.on('close', () => this._terminateInstrumentation());
+    this.instrumentationProcess.childProcess.on('close', async () => {
+      await this._terminateInstrumentation();
+      await this.adb.reverseRemove(deviceId, serverPort);
+    });
   }
 
   async _queryPID(deviceId, bundleId, waitAtStart = true) {

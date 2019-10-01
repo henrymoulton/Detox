@@ -1,17 +1,16 @@
-const path = require('path');
-const exec = require('../../utils/exec').execWithRetriesAndLogs;
-const spawn = require('child-process-promise').spawn;
 const _ = require('lodash');
-const unitLogger = require('../../utils/logger').child({ __filename });
 const fs = require('fs');
 const os = require('os');
-const Environment = require('../../utils/environment');
+const spawn = require('child-process-promise').spawn;
 const Tail = require('tail').Tail;
+const exec = require('../../utils/exec').execWithRetriesAndLogs;
+const unitLogger = require('../../utils/logger').child({ __filename });
+const {getAndroidEmulatorPath} = require('../../utils/environment');
 const argparse = require('../../utils/argparse');
 
 class Emulator {
   constructor() {
-    this.emulatorBin = Environment.getAndroidEmulatorPath();
+    this.emulatorBin = getAndroidEmulatorPath();
   }
 
   async listAvds() {
@@ -24,21 +23,28 @@ class Emulator {
     return (await exec(`${this.emulatorBin} ${cmd}`)).stdout;
   }
 
-  async boot(emulatorName) {
+  async boot(emulatorName, options = {port: undefined}) {
+    const deviceLaunchArgs = (argparse.getArgValue('deviceLaunchArgs') || '').split(/\s+/);
     const emulatorArgs = _.compact([
       '-verbose',
       '-no-audio',
+      '-no-boot-anim',
       argparse.getArgValue('headless') ? '-no-window' : '',
+      argparse.getArgValue('readOnlyEmu') ? '-read-only' : '',
+      options.port ? `-port` : '',
+      options.port ? `${options.port}` : '',
+      ...deviceLaunchArgs,
       `@${emulatorName}`
     ]);
 
     const gpuMethod = this.gpuMethod();
-    if(gpuMethod) {
+    if (gpuMethod) {
       emulatorArgs.push('-gpu', gpuMethod);
     }
 
     let childProcessOutput;
-    const tempLog = `./${emulatorName}.log`;
+    const portName = options.port ? `-${options.port}` : '';
+    const tempLog = `./${emulatorName}${portName}.log`;
     const stdout = fs.openSync(tempLog, 'a');
     const stderr = fs.openSync(tempLog, 'a');
     const tailOptions = {
@@ -92,7 +98,7 @@ class Emulator {
 
   gpuMethod() {
     const gpuArgument = argparse.getArgValue('gpu');
-    if(gpuArgument) {
+    if (gpuArgument) {
       return gpuArgument;
     }
 

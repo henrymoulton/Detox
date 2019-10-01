@@ -66,12 +66,12 @@ class AppleSimUtils {
    * @param {String} udid - device id
    * @returns {Promise<boolean>} true, if device has been booted up from the shutdown state
    */
-  async boot(udid) {
+  async boot(udid, deviceLaunchArgs = '') {
     const isBooted = await this.isBooted(udid);
 
     if (!isBooted) {
-      const statusLogs = { trying: `Booting device ${udid}` };
-      await this._execSimctl({ cmd: `boot ${udid}`, statusLogs, retries: 10 });
+      const statusLogs = { trying: `Booting device ${udid}...` };
+      await this._execSimctl({ cmd: `boot ${udid} ${deviceLaunchArgs}`, statusLogs, retries: 10 });
       await this._execSimctl({ cmd: `bootstatus ${udid}`, retries: 1 });
       return true;
     }
@@ -146,7 +146,7 @@ class AppleSimUtils {
       successful: `Matched ${matchType}!`
     };
 
-    await this._execAppleSimUtils({ args: `--byId ${udid} --${matchType}}` }, statusLogs, 1);
+    await this._execAppleSimUtils({ args: `--byId ${udid} --match${matchType}` }, statusLogs, 1);
   }
 
   async unmatchBiometric(udid, matchType) {
@@ -158,7 +158,7 @@ class AppleSimUtils {
       successful: `Unmatched ${matchType}!`
     };
 
-    await this._execAppleSimUtils({ args: `--byId ${udid} --unmatch${matchType}}` }, statusLogs, 1);
+    await this._execAppleSimUtils({ args: `--byId ${udid} --unmatch${matchType}` }, statusLogs, 1);
   }
 
   async setBiometricEnrollment(udid, yesOrNo) {

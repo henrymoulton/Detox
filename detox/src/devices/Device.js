@@ -96,6 +96,10 @@ class Device {
     }
   }
 
+  get name() {
+    return this.deviceDriver.name;
+  }
+
   async takeScreenshot(name) {
     if (!name) {
       throw new Error('Cannot take a screenshot with an empty name.');
@@ -142,22 +146,22 @@ class Device {
 
   async matchFace() {
     await this.deviceDriver.matchFace(this._deviceId);
-    await this.deviceDriver.waitForBackground();
+    await this.deviceDriver.waitForActive();
   }
 
   async unmatchFace() {
     await this.deviceDriver.unmatchFace(this._deviceId);
-    await this.deviceDriver.waitForBackground();
+    await this.deviceDriver.waitForActive();
   }
 
   async matchFinger() {
     await this.deviceDriver.matchFinger(this._deviceId);
-    await this.deviceDriver.waitForBackground();
+    await this.deviceDriver.waitForActive();
   }
 
   async unmatchFinger() {
     await this.deviceDriver.unmatchFinger(this._deviceId);
-    await this.deviceDriver.waitForBackground();
+    await this.deviceDriver.waitForActive();
   }
 
   async shake() {

@@ -18,7 +18,6 @@ describe('Device', () => {
 
   beforeEach(async () => {
     jest.mock('fs');
-    jest.mock('proper-lockfile');
     jest.mock('../utils/logger');
 
     fs = require('fs');
@@ -89,6 +88,13 @@ describe('Device', () => {
   function validDevice() {
     return schemeDevice(validScheme, 'ios.sim.release');
   }
+
+  it('should return the name from the driver', async () => {
+    driverMock.driver.name = 'mock-device-name-from-driver';
+
+    const device = validDevice();
+    expect(device.name).toEqual('mock-device-name-from-driver');
+  });
 
   describe('prepare()', () => {
     it(`valid scheme, no binary, should throw`, async () => {
@@ -642,7 +648,7 @@ describe('Device', () => {
       deviceConfig: invalidDeviceNoBinary.configurations['ios.sim.release'],
       deviceDriver: new SimulatorDriver(client),
       sessionConfig: validScheme.session,
-    })).toThrowErrorMatchingSnapshot();
+    })).toThrowError(/binaryPath.* is missing/);
   });
 
   it(`new Device() with invalid device config (no device name) should throw`, () => {
@@ -650,7 +656,7 @@ describe('Device', () => {
       deviceConfig: invalidDeviceNoDeviceName.configurations['ios.sim.release'],
       deviceDriver: new SimulatorDriver(client),
       sessionConfig: validScheme.session,
-    })).toThrowErrorMatchingSnapshot();
+    })).toThrowError(/name.* is missing/);
   });
 
   it(`should accept absolute path for binary`, async () => {
@@ -695,7 +701,7 @@ describe('Device', () => {
   });
 
   it('takeScreenshot(name) should throw an exception if given name is empty', async () => {
-    await expect(validDevice().takeScreenshot()).rejects.toThrowErrorMatchingSnapshot();
+    await expect(validDevice().takeScreenshot()).rejects.toThrowError(/empty name/);
   });
 
   it('takeScreenshot(name) should delegate the work to the driver', async () => {
