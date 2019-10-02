@@ -12,6 +12,7 @@ import {
   View,
   TouchableOpacity
 } from 'react-native';
+import RNRestart from 'react-native-restart';
 
 class example extends Component {
   constructor(props) {
@@ -36,6 +37,9 @@ class example extends Component {
         <TouchableOpacity testID='goodbye_button' onPress={this.onButtonPress.bind(this, 'Goodbye, World')}>
           <Text style={{color: 'blue', marginTop: 50, marginBottom: 20}}>Say Goodbye</Text>
         </TouchableOpacity>
+      <TouchableOpacity testID='restart_button' onPress={this.onRestartButtonPress.bind(this)}>
+          <Text style={{color: 'pink', marginTop: 50, marginBottom: 20}}>Restart</Text>
+      </TouchableOpacity>
       </View>
     );
   }
@@ -52,6 +56,9 @@ class example extends Component {
     this.setState({
       greeting: greeting
     });
+  }
+  onRestartButtonPress() {
+    RNRestart.Restart();
   }
 }
 
